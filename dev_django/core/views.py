@@ -3,10 +3,18 @@ from django.shortcuts import render
 # Create your views here.
 
 # core/views.py
+
+
+
 import subprocess
 import os
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
+
+
+def landing_view(request):
+    return HttpResponse("Landing page funcionando correctamente")
+
 
 @csrf_exempt  # Evita verificación CSRF para permitir que GitHub envíe POSTs
 def github_webhook(request):
