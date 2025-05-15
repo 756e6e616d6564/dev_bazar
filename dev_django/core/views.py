@@ -21,10 +21,10 @@ def landing_view(request):
             user = authenticate(username=username, password=password)
             if user is not None:
                 login(request, user)
-                return redirect('home')  # You'll need to define a 'home' URL
+                return redirect('home')  # Cambia 'home' por la URL deseada
     else:
         form = AuthenticationForm()
-    return render(request, 'templates/login.html', {'form': form})
+    return render(request, 'core/login.html', {'form': form})
 
 
 @csrf_exempt  # Evita verificación CSRF para permitir que GitHub envíe POSTs
