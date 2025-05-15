@@ -24,7 +24,7 @@ def landing_view(request):
                 return redirect('home')  # You'll need to define a 'home' URL
     else:
         form = AuthenticationForm()
-    return render(request, 'core/login.html', {'form': form})
+    return render(request, '/login.html', {'form': form})
 
 
 @csrf_exempt  # Evita verificación CSRF para permitir que GitHub envíe POSTs
