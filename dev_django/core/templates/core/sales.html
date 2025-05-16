@@ -1,0 +1,295 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Sistema de Ventas - Dev Bazar{% endblock %}
+
+{% block extra_css %}
+<style>
+    .product-card {
+        transition: transform 0.2s ease;
+    }
+    .product-card:hover {
+        transform: translateY(-2px);
+    }
+    .cart-item:hover {
+        background-color: rgba(0, 0, 0, 0.05);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-8">
+    <div class="flex flex-col md:flex-row gap-6">
+        <!-- Sección de Productos -->
+        <div class="md:w-2/3">
+            <div class="card mb-6">
+                <div class="card-header">
+                    <h2 class="card-title">Productos</h2>
+                    <div class="flex items-center space-x-4 mt-4">
+                        <div class="relative flex-grow">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3">
+                                <i class="fas fa-search text-muted-foreground"></i>
+                            </span>
+                            <input type="text" id="product-search" placeholder="Buscar productos..." 
+                                   class="input pl-10 w-full" autocomplete="off">
+                        </div>
+                        <div>
+                            <select id="category-filter" class="input">
+                                <option value="">Todas las categorías</option>
+                                {% for category in categories %}
+                                <option value="{{ category.id }}">{{ category.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-content">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" id="products-container">
+                        {% for product in products %}
+                        <div class="product-card card cursor-pointer" 
+                             data-id="{{ product.id }}" 
+                             data-name="{{ product.name }}" 
+                             data-price="{{ product.price }}" 
+                             data-stock="{{ product.stock }}"
+                             data-category="{{ product.category.id|default:'' }}">
+                            <div class="card-header py-3">
+                                <h3 class="card-title text-base">{{ product.name }}</h3>
+                            </div>
+                            <div class="card-content py-3">
+                                <div class="flex justify-between items-center">
+                                    <span class="font-bold text-lg">${{ product.price }}</span>
+                                    <span class="badge {% if product.stock < 5 %}badge-destructive{% else %}badge-default{% endif %}">
+                                        Stock: {{ product.stock }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="col-span-full text-center py-8">
+                            <p class="text-muted-foreground">No se encontraron productos</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sección del Carrito de Compras -->
+        <div class="md:w-1/3">
+            <div class="card sticky top-20">
+                <div class="card-header">
+                    <h2 class="card-title">Carrito</h2>
+                </div>
+                <div class="card-content">
+                    <form id="sale-form" method="post" action="{% url 'process_sale' %}">
+                        {% csrf_token %}
+                        <div class="mb-4 max-h-96 overflow-y-auto" id="cart-items">
+                            <!-- Los items del carrito se añadirán aquí dinámicamente -->
+                            <div class="text-center py-8 text-muted-foreground" id="empty-cart-message">
+                                <i class="fas fa-shopping-cart text-3xl mb-2"></i>
+                                <p>El carrito está vacío</p>
+                            </div>
+                        </div>
+                        
+                        <div class="border-t pt-4">
+                            <div class="flex justify-between text-lg font-bold">
+                                <span>Total:</span>
+                                <span id="total-amount">$0.00</span>
+                                <input type="hidden" name="total_amount" id="total-amount-input" value="0">
+                            </div>
+                        </div>
+                        
+                        <div class="mt-4">
+                            <button type="submit" class="btn btn-primary w-full" id="process-sale-btn" disabled>
+                                <i class="fas fa-check-circle mr-2"></i>
+                                Procesar Venta
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Plantilla para items del carrito (oculta) -->
+<template id="cart-item-template">
+    <div class="cart-item flex items-center justify-between p-2 rounded-md mb-2">
+        <div class="flex-grow">
+            <div class="font-medium product-name"></div>
+            <div class="text-sm text-muted-foreground">
+                <span class="product-price"></span> x <span class="product-quantity"></span>
+            </div>
+            <input type="hidden" name="item_product_id[]" class="item-product-id">
+            <input type="hidden" name="item_quantity[]" class="item-quantity">
+            <input type="hidden" name="item_price[]" class="item-price">
+        </div>
+        <div class="flex items-center space-x-2">
+            <button type="button" class="decrease-qty btn btn-sm btn-ghost p-1">
+                <i class="fas fa-minus"></i>
+            </button>
+            <button type="button" class="increase-qty btn btn-sm btn-ghost p-1">
+                <i class="fas fa-plus"></i>
+            </button>
+            <button type="button" class="remove-item btn btn-sm btn-ghost p-1 text-destructive">
+                <i class="fas fa-trash"></i>
+            </button>
+        </div>
+    </div>
+</template>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const cartItems = [];
+        const productsContainer = document.getElementById('products-container');
+        const cartItemsContainer = document.getElementById('cart-items');
+        const emptyCartMessage = document.getElementById('empty-cart-message');
+        const totalAmountDisplay = document.getElementById('total-amount');
+        const totalAmountInput = document.getElementById('total-amount-input');
+        const processSaleBtn = document.getElementById('process-sale-btn');
+        const productSearch = document.getElementById('product-search');
+        const categoryFilter = document.getElementById('category-filter');
+        const cartItemTemplate = document.getElementById('cart-item-template');
+        
+        // Añadir producto al carrito
+        productsContainer.addEventListener('click', function(e) {
+            const productCard = e.target.closest('.product-card');
+            if (!productCard) return;
+            
+            const productId = productCard.dataset.id;
+            const name = productCard.dataset.name;
+            const price = parseFloat(productCard.dataset.price);
+            const stock = parseInt(productCard.dataset.stock);
+            
+            if (stock <= 0) {
+                alert('Este producto no tiene stock disponible.');
+                return;
+            }
+            
+            // Verificar si el producto ya está en el carrito
+            let existingItem = cartItems.find(item => item.productId === productId);
+            
+            if (existingItem) {
+                // Si ya está en el carrito, incrementar cantidad si hay stock
+                if (existingItem.quantity < stock) {
+                    existingItem.quantity += 1;
+                    existingItem.element.querySelector('.product-quantity').textContent = existingItem.quantity;
+                    existingItem.element.querySelector('.item-quantity').value = existingItem.quantity;
+                } else {
+                    alert('No hay suficiente stock para este producto.');
+                }
+            } else {
+                // Si no está en el carrito, añadirlo
+                const newItem = {
+                    productId,
+                    name,
+                    price,
+                    quantity: 1,
+                    stock
+                };
+                
+                // Crear el elemento del carrito desde la plantilla
+                const itemElement = document.importNode(cartItemTemplate.content, true).firstElementChild;
+                itemElement.querySelector('.product-name').textContent = name;
+                itemElement.querySelector('.product-price').textContent = `$${price.toFixed(2)}`;
+                itemElement.querySelector('.product-quantity').textContent = 1;
+                itemElement.querySelector('.item-product-id').value = productId;
+                itemElement.querySelector('.item-quantity').value = 1;
+                itemElement.querySelector('.item-price').value = price;
+                
+                // Añadir evento para decrementar cantidad
+                itemElement.querySelector('.decrease-qty').addEventListener('click', function() {
+                    if (newItem.quantity > 1) {
+                        newItem.quantity -= 1;
+                        itemElement.querySelector('.product-quantity').textContent = newItem.quantity;
+                        itemElement.querySelector('.item-quantity').value = newItem.quantity;
+                        updateTotal();
+                    }
+                });
+                
+                // Añadir evento para incrementar cantidad
+                itemElement.querySelector('.increase-qty').addEventListener('click', function() {
+                    if (newItem.quantity < newItem.stock) {
+                        newItem.quantity += 1;
+                        itemElement.querySelector('.product-quantity').textContent = newItem.quantity;
+                        itemElement.querySelector('.item-quantity').value = newItem.quantity;
+                        updateTotal();
+                    } else {
+                        alert('No hay suficiente stock para este producto.');
+                    }
+                });
+                
+                // Añadir evento para eliminar item
+                itemElement.querySelector('.remove-item').addEventListener('click', function() {
+                    const index = cartItems.findIndex(item => item.productId === newItem.productId);
+                    if (index !== -1) {
+                        cartItems.splice(index, 1);
+                        itemElement.remove();
+                        updateEmptyCartMessage();
+                        updateTotal();
+                    }
+                });
+                
+                newItem.element = itemElement;
+                cartItems.push(newItem);
+                
+                // Añadir al DOM
+                cartItemsContainer.appendChild(itemElement);
+                
+                // Ocultar mensaje de carrito vacío
+                updateEmptyCartMessage();
+            }
+            
+            updateTotal();
+        });
+        
+        // Actualiza el total
+        function updateTotal() {
+            const total = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            totalAmountDisplay.textContent = `$${total.toFixed(2)}`;
+            totalAmountInput.value = total;
+            
+            // Habilitar/deshabilitar botón de procesar venta
+            processSaleBtn.disabled = cartItems.length === 0;
+        }
+        
+        // Actualiza el mensaje de carrito vacío
+        function updateEmptyCartMessage() {
+            if (cartItems.length === 0) {
+                emptyCartMessage.classList.remove('hidden');
+            } else {
+                emptyCartMessage.classList.add('hidden');
+            }
+        }
+        
+        // Filtrar productos por búsqueda
+        productSearch.addEventListener('input', filterProducts);
+        
+        // Filtrar productos por categoría
+        categoryFilter.addEventListener('change', filterProducts);
+        
+        function filterProducts() {
+            const searchTerm = productSearch.value.toLowerCase();
+            const categoryId = categoryFilter.value;
+            
+            const productCards = productsContainer.querySelectorAll('.product-card');
+            
+            productCards.forEach(card => {
+                const productName = card.dataset.name.toLowerCase();
+                const productCategory = card.dataset.category;
+                
+                const matchesSearch = productName.includes(searchTerm);
+                const matchesCategory = categoryId === '' || productCategory === categoryId;
+                
+                if (matchesSearch && matchesCategory) {
+                    card.classList.remove('hidden');
+                } else {
+                    card.classList.add('hidden');
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}

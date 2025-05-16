@@ -1,0 +1,58 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Dev Bazar - Sistema POS{% endblock %}
+
+{% block content %}
+<div class="bg-background">
+    <!-- Hero Section -->
+    <section class="py-12 md:py-24 lg:py-32 xl:py-40">
+        <div class="container px-4 md:px-6">
+            <div class="flex flex-col items-center justify-center space-y-4 text-center">
+                <div class="space-y-2">
+                    <h1 class="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl lg:text-6xl">
+                        Sistema de Punto de Venta
+                    </h1>
+                    <p class="mx-auto max-w-[700px] text-muted-foreground md:text-xl">
+                        Gestiona tu inventario, ventas y finanzas con nuestra plataforma integral.
+                    </p>
+                </div>
+                <div class="flex flex-col gap-2 min-[400px]:flex-row">
+                    <a href="{% url 'login' %}" class="btn btn-primary btn-lg">
+                        Iniciar Sesión
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="bg-muted/50 py-12 md:py-24 lg:py-32">
+        <div class="container px-4 md:px-6">
+            <div class="mx-auto grid max-w-5xl items-center gap-6 py-12 lg:grid-cols-3 lg:gap-12">
+                <div class="grid gap-4 text-center">
+                    <i class="fas fa-shopping-cart text-5xl text-primary mx-auto"></i>
+                    <h3 class="text-xl font-bold">Ventas Rápidas</h3>
+                    <p class="text-muted-foreground">
+                        Procesa ventas de manera rápida y eficiente con nuestra interfaz intuitiva.
+                    </p>
+                </div>
+                <div class="grid gap-4 text-center">
+                    <i class="fas fa-box text-5xl text-primary mx-auto"></i>
+                    <h3 class="text-xl font-bold">Gestión de Inventario</h3>
+                    <p class="text-muted-foreground">
+                        Controla tu inventario en tiempo real y recibe alertas de stock bajo.
+                    </p>
+                </div>
+                <div class="grid gap-4 text-center">
+                    <i class="fas fa-chart-bar text-5xl text-primary mx-auto"></i>
+                    <h3 class="text-xl font-bold">Reportes Detallados</h3>
+                    <p class="text-muted-foreground">
+                        Analiza tus ventas y finanzas con reportes detallados y gráficos.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+{% endblock %}

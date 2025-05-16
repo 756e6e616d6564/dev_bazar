@@ -1,0 +1,192 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Administración de Categorías - Dev Bazar{% endblock %}
+
+{% block content %}
+<div class="container py-8">
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-3xl font-bold">Administración de Categorías</h1>
+        <button id="add-category-btn" class="btn btn-primary">
+            <i class="fas fa-plus mr-2"></i>
+            Nueva Categoría
+        </button>
+    </div>
+
+    <!-- Tabla de Categorías -->
+    <div class="card">
+        <div class="card-content">
+            <div class="overflow-x-auto">
+                <table class="table">
+                    <thead class="table-header">
+                        <tr class="table-row">
+                            <th class="table-cell">Nombre</th>
+                            <th class="table-cell">Descripción</th>
+                            <th class="table-cell">Productos</th>
+                            <th class="table-cell">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody class="table-body">
+                        {% for category in categories %}
+                        <tr class="table-row" data-id="{{ category.id }}" data-name="{{ category.name }}">
+                            <td class="table-cell">{{ category.name }}</td>
+                            <td class="table-cell">{{ category.description|default:"-" }}</td>
+                            <td class="table-cell">
+                                <span class="badge badge-default">{{ category.products.count }}</span>
+                            </td>
+                            <td class="table-cell">
+                                <div class="flex space-x-2">
+                                    <button class="btn btn-sm btn-outline edit-category-btn" data-id="{{ category.id }}">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline delete-category-btn" data-id="{{ category.id }}">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr class="table-row">
+                            <td class="table-cell text-center" colspan="4">No hay categorías registradas</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Añadir/Editar Categoría -->
+<div id="category-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black bg-opacity-50">
+    <div class="bg-background rounded-lg shadow-lg max-w-md w-full mx-4">
+        <div class="p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold" id="modal-title">Añadir Categoría</h3>
+                <button id="close-modal-btn" class="text-muted-foreground hover:text-foreground">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <form id="category-form" method="post" action="{% url 'save_category' %}" class="space-y-4">
+                {% csrf_token %}
+                <input type="hidden" id="category-id" name="category_id">
+                
+                <div class="space-y-2">
+                    <label for="category-name" class="label">Nombre</label>
+                    <input type="text" id="category-name" name="name" class="input w-full" required>
+                </div>
+                
+                <div class="space-y-2">
+                    <label for="category-description" class="label">Descripción (opcional)</label>
+                    <textarea id="category-description" name="description" class="input w-full min-h-[100px]"></textarea>
+                </div>
+                
+                <div class="flex justify-end space-x-2 pt-4">
+                    <button type="button" id="cancel-btn" class="btn btn-outline">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Confirmación para Eliminar -->
+<div id="delete-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black bg-opacity-50">
+    <div class="bg-background rounded-lg shadow-lg max-w-md w-full mx-4">
+        <div class="p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold">Confirmar Eliminación</h3>
+                <button id="close-delete-modal-btn" class="text-muted-foreground hover:text-foreground">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <p class="mb-4">¿Está seguro que desea eliminar la categoría <span id="delete-category-name" class="font-semibold"></span>?</p>
+            <p class="mb-4 text-destructive">Nota: Esto no eliminará los productos asociados, pero quedarán sin categoría.</p>
+            
+            <form id="delete-form" method="post" action="{% url 'delete_category' %}">
+                {% csrf_token %}
+                <input type="hidden" id="delete-category-id" name="category_id">
+                
+                <div class="flex justify-end space-x-2 pt-4">
+                    <button type="button" id="cancel-delete-btn" class="btn btn-outline">Cancelar</button>
+                    <button type="submit" class="btn btn-destructive">Eliminar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const addCategoryBtn = document.getElementById('add-category-btn');
+        const categoryModal = document.getElementById('category-modal');
+        const deleteModal = document.getElementById('delete-modal');
+        const closeModalBtn = document.getElementById('close-modal-btn');
+        const closeDeleteModalBtn = document.getElementById('close-delete-modal-btn');
+        const cancelBtn = document.getElementById('cancel-btn');
+        const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
+        const modalTitle = document.getElementById('modal-title');
+        const categoryForm = document.getElementById('category-form');
+        const deleteForm = document.getElementById('delete-form');
+        
+        // Botones de edición
+        document.querySelectorAll('.edit-category-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const categoryId = this.dataset.id;
+                modalTitle.textContent = 'Editar Categoría';
+                
+                // Aquí deberías hacer una petición AJAX para obtener los datos de la categoría
+                // y rellenar el formulario. Para simplificar, asumimos que ya tienes todos 
+                // los datos necesarios en los data attributes.
+                
+                // Ejemplo (esto es una simulación, deberías reemplazarlo por una petición real):
+                fetch(`/api/product-categories/${categoryId}/`)
+                    .then(response => response.json())
+                    .then(category => {
+                        document.getElementById('category-id').value = category.id;
+                        document.getElementById('category-name').value = category.name;
+                        document.getElementById('category-description').value = category.description || '';
+                        
+                        categoryModal.classList.remove('hidden');
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('Error al cargar los datos de la categoría');
+                    });
+            });
+        });
+        
+        // Botones de eliminación
+        document.querySelectorAll('.delete-category-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const categoryId = this.dataset.id;
+                const categoryRow = document.querySelector(`tr[data-id="${categoryId}"]`);
+                const categoryName = categoryRow.dataset.name;
+                
+                document.getElementById('delete-category-id').value = categoryId;
+                document.getElementById('delete-category-name').textContent = categoryName;
+                
+                deleteModal.classList.remove('hidden');
+            });
+        });
+        
+        // Botón de añadir categoría
+        addCategoryBtn.addEventListener('click', function() {
+            modalTitle.textContent = 'Añadir Categoría';
+            categoryForm.reset();
+            document.getElementById('category-id').value = '';
+            categoryModal.classList.remove('hidden');
+        });
+        
+        // Cerrar modales
+        closeModalBtn.addEventListener('click', () => categoryModal.classList.add('hidden'));
+        cancelBtn.addEventListener('click', () => categoryModal.classList.add('hidden'));
+        closeDeleteModalBtn.addEventListener('click', () => deleteModal.classList.add('hidden'));
+        cancelDeleteBtn.addEventListener('click', () => deleteModal.classList.add('hidden'));
+    });
+</script>
+{% endblock %}

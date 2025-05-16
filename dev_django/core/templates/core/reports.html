@@ -1,0 +1,312 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Reportes - Dev Bazar{% endblock %}
+
+{% block extra_css %}
+<style>
+    .chart-container {
+        height: 300px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-8">
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-3xl font-bold">Reportes</h1>
+        <div class="flex space-x-2">
+            <select id="date-filter" class="input">
+                <option value="today">Hoy</option>
+                <option value="week">Esta semana</option>
+                <option value="month" selected>Este mes</option>
+                <option value="year">Este año</option>
+            </select>
+            <button id="refresh-btn" class="btn btn-outline">
+                <i class="fas fa-sync-alt mr-2"></i>
+                Actualizar
+            </button>
+        </div>
+    </div>
+
+    <!-- Tarjetas de Resumen -->
+    <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
+        <div class="card">
+            <div class="card-header">
+                <div class="flex items-center justify-between">
+                    <h3 class="card-title text-lg">Ventas Totales</h3>
+                    <i class="fas fa-cash-register text-2xl text-primary"></i>
+                </div>
+            </div>
+            <div class="card-content">
+                <p class="text-3xl font-bold">${{ summary.total_sales|floatformat:2 }}</p>
+                <p class="text-sm text-muted-foreground">{{ summary.num_sales }} ventas</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <div class="flex items-center justify-between">
+                    <h3 class="card-title text-lg">Productos Vendidos</h3>
+                    <i class="fas fa-box text-2xl text-primary"></i>
+                </div>
+            </div>
+            <div class="card-content">
+                <p class="text-3xl font-bold">{{ summary.items_sold }}</p>
+                <p class="text-sm text-muted-foreground">{{ summary.unique_products }} productos únicos</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <div class="flex items-center justify-between">
+                    <h3 class="card-title text-lg">Venta Promedio</h3>
+                    <i class="fas fa-calculator text-2xl text-primary"></i>
+                </div>
+            </div>
+            <div class="card-content">
+                <p class="text-3xl font-bold">${{ summary.average_sale|floatformat:2 }}</p>
+                <p class="text-sm text-muted-foreground">por transacción</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <div class="flex items-center justify-between">
+                    <h3 class="card-title text-lg">Ganancia Estimada</h3>
+                    <i class="fas fa-chart-line text-2xl text-primary"></i>
+                </div>
+            </div>
+            <div class="card-content">
+                <p class="text-3xl font-bold">${{ summary.estimated_profit|floatformat:2 }}</p>
+                <p class="text-sm text-muted-foreground">margen promedio {{ summary.profit_margin|floatformat:0 }}%</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gráficos -->
+    <div class="grid gap-6 lg:grid-cols-2 mb-8">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Ventas por Día</h3>
+                <p class="card-description">Últimos 30 días</p>
+            </div>
+            <div class="card-content">
+                <div class="chart-container" id="sales-chart"></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Productos más Vendidos</h3>
+                <p class="card-description">Top 5 productos</p>
+            </div>
+            <div class="card-content">
+                <div class="chart-container" id="products-chart"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tablas de Datos -->
+    <div class="grid gap-6 lg:grid-cols-2">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Ventas Recientes</h3>
+            </div>
+            <div class="card-content">
+                <div class="overflow-x-auto">
+                    <table class="table">
+                        <thead class="table-header">
+                            <tr class="table-row">
+                                <th class="table-cell">ID</th>
+                                <th class="table-cell">Fecha</th>
+                                <th class="table-cell">Vendedor</th>
+                                <th class="table-cell">Total</th>
+                                <th class="table-cell">Detalles</th>
+                            </tr>
+                        </thead>
+                        <tbody class="table-body">
+                            {% for sale in recent_sales %}
+                            <tr class="table-row">
+                                <td class="table-cell">#{{ sale.id }}</td>
+                                <td class="table-cell">{{ sale.created_at|date:"d/m/Y H:i" }}</td>
+                                <td class="table-cell">{{ sale.seller.username }}</td>
+                                <td class="table-cell">${{ sale.total_amount }}</td>
+                                <td class="table-cell">
+                                    <a href="/sales/{{ sale.id }}" class="btn btn-sm btn-outline">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr class="table-row">
+                                <td class="table-cell text-center" colspan="5">No hay ventas recientes</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Productos más Vendidos</h3>
+            </div>
+            <div class="card-content">
+                <div class="overflow-x-auto">
+                    <table class="table">
+                        <thead class="table-header">
+                            <tr class="table-row">
+                                <th class="table-cell">Producto</th>
+                                <th class="table-cell">Categoría</th>
+                                <th class="table-cell">Unidades</th>
+                                <th class="table-cell">Total</th>
+                                <th class="table-cell">% Ventas</th>
+                            </tr>
+                        </thead>
+                        <tbody class="table-body">
+                            {% for product in top_products %}
+                            <tr class="table-row">
+                                <td class="table-cell">{{ product.name }}</td>
+                                <td class="table-cell">{{ product.category.name|default:"Sin categoría" }}</td>
+                                <td class="table-cell">{{ product.quantity_sold }}</td>
+                                <td class="table-cell">${{ product.total_sold }}</td>
+                                <td class="table-cell">{{ product.percentage|floatformat:1 }}%</td>
+                            </tr>
+                            {% empty %}
+                            <tr class="table-row">
+                                <td class="table-cell text-center" colspan="5">No hay datos de productos</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Chart.js para los gráficos -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const dateFilter = document.getElementById('date-filter');
+        const refreshBtn = document.getElementById('refresh-btn');
+        
+        // Ejemplo de datos para los gráficos (en una implementación real, estos vendrían del backend)
+        const salesData = {
+            labels: [{% for day in daily_sales %}'{{ day.date|date:"d/m" }}',{% endfor %}],
+            values: [{% for day in daily_sales %}{{ day.total }},{% endfor %}]
+        };
+        
+        const productData = {
+            labels: [{% for product in top_products %}'{{ product.name }}',{% endfor %}],
+            values: [{% for product in top_products %}{{ product.quantity_sold }},{% endfor %}]
+        };
+        
+        // Gráfico de ventas por día
+        const salesCtx = document.getElementById('sales-chart').getContext('2d');
+        const salesChart = new Chart(salesCtx, {
+            type: 'line',
+            data: {
+                labels: salesData.labels,
+                datasets: [{
+                    label: 'Ventas ($)',
+                    data: salesData.values,
+                    backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                    borderColor: 'rgba(59, 130, 246, 1)',
+                    borderWidth: 2,
+                    tension: 0.1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+        
+        // Gráfico de productos más vendidos
+        const productsCtx = document.getElementById('products-chart').getContext('2d');
+        const productsChart = new Chart(productsCtx, {
+            type: 'bar',
+            data: {
+                labels: productData.labels,
+                datasets: [{
+                    label: 'Unidades vendidas',
+                    data: productData.values,
+                    backgroundColor: [
+                        'rgba(255, 99, 132, 0.6)',
+                        'rgba(54, 162, 235, 0.6)',
+                        'rgba(255, 206, 86, 0.6)',
+                        'rgba(75, 192, 192, 0.6)',
+                        'rgba(153, 102, 255, 0.6)'
+                    ],
+                    borderColor: [
+                        'rgba(255, 99, 132, 1)',
+                        'rgba(54, 162, 235, 1)',
+                        'rgba(255, 206, 86, 1)',
+                        'rgba(75, 192, 192, 1)',
+                        'rgba(153, 102, 255, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+        
+        // Actualizar reportes cuando cambie el filtro
+        dateFilter.addEventListener('change', fetchReportData);
+        refreshBtn.addEventListener('click', fetchReportData);
+        
+        function fetchReportData() {
+            const period = dateFilter.value;
+            
+            // En una implementación real, harías una petición AJAX aquí
+            // y actualizarías los gráficos y tarjetas con los nuevos datos
+            
+            // Ejemplo:
+            fetch(`/api/reports/?period=${period}`)
+                .then(response => response.json())
+                .then(data => {
+                    // Actualizar tarjetas de resumen
+                    // ...
+                    
+                    // Actualizar gráficos
+                    updateCharts(data);
+                })
+                .catch(error => {
+                    console.error('Error fetching report data:', error);
+                });
+        }
+        
+        function updateCharts(data) {
+            // Actualizar gráfico de ventas
+            salesChart.data.labels = data.daily_sales.map(day => day.date);
+            salesChart.data.datasets[0].data = data.daily_sales.map(day => day.total);
+            salesChart.update();
+            
+            // Actualizar gráfico de productos
+            productsChart.data.labels = data.top_products.map(product => product.name);
+            productsChart.data.datasets[0].data = data.top_products.map(product => product.quantity_sold);
+            productsChart.update();
+        }
+    });
+</script>
+{% endblock %}

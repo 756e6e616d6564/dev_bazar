@@ -1,0 +1,151 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Dev Bazar{% endblock %}</title>
+    
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Shadcn UI Styles -->
+    <link rel="stylesheet" href="{% static 'css/shadcn.css' %}">
+    
+    <!-- Font Awesome para iconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Configuración personalizada de Tailwind -->
+    <script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          container: {
+            center: true,
+            padding: "2rem",
+            screens: {
+              "2xl": "1400px",
+            },
+          },
+          extend: {
+            colors: {
+              border: "hsl(var(--border))",
+              input: "hsl(var(--input))",
+              ring: "hsl(var(--ring))",
+              background: "hsl(var(--background))",
+              foreground: "hsl(var(--foreground))",
+              primary: {
+                DEFAULT: "hsl(var(--primary))",
+                foreground: "hsl(var(--primary-foreground))",
+              },
+              secondary: {
+                DEFAULT: "hsl(var(--secondary))",
+                foreground: "hsl(var(--secondary-foreground))",
+              },
+              destructive: {
+                DEFAULT: "hsl(var(--destructive))",
+                foreground: "hsl(var(--destructive-foreground))",
+              },
+              muted: {
+                DEFAULT: "hsl(var(--muted))",
+                foreground: "hsl(var(--muted-foreground))",
+              },
+              accent: {
+                DEFAULT: "hsl(var(--accent))",
+                foreground: "hsl(var(--accent-foreground))",
+              },
+              popover: {
+                DEFAULT: "hsl(var(--popover))",
+                foreground: "hsl(var(--popover-foreground))",
+              },
+              card: {
+                DEFAULT: "hsl(var(--card))",
+                foreground: "hsl(var(--card-foreground))",
+              },
+            },
+            borderRadius: {
+              lg: "var(--radius)",
+              md: "calc(var(--radius) - 2px)",
+              sm: "calc(var(--radius) - 4px)",
+            },
+          },
+        }
+      }
+    </script>
+    
+    {% block extra_css %}{% endblock %}
+</head>
+<body class="min-h-screen bg-background font-sans antialiased">
+    <div class="relative flex min-h-screen flex-col">
+        {% if user.is_authenticated %}
+        <header class="bg-background sticky top-0 z-40 w-full border-b shadow-sm">
+            <div class="container flex h-16 items-center space-x-4 sm:justify-between sm:space-x-0">
+                <div class="flex items-center space-x-4">
+                    <a href="{% url 'landing' %}" class="text-primary text-xl font-bold">Dev Bazar</a>
+                </div>
+                <div class="flex flex-1 items-center justify-end space-x-4">
+                    <nav class="nav">
+                        {% if user.profile.role == 'admin' %}
+                        <a href="{% url 'admin:index' %}" class="nav-link {% if request.path == '/admin/' %}nav-link-active{% endif %}">
+                            <i class="fas fa-cog mr-1"></i> Admin
+                        </a>
+                        <a href="/products" class="nav-link {% if '/products' in request.path %}nav-link-active{% endif %}">
+                            <i class="fas fa-box mr-1"></i> Productos
+                        </a>
+                        <a href="/categories" class="nav-link {% if '/categories' in request.path %}nav-link-active{% endif %}">
+                            <i class="fas fa-tags mr-1"></i> Categorías
+                        </a>
+                        <a href="/reports" class="nav-link {% if '/reports' in request.path %}nav-link-active{% endif %}">
+                            <i class="fas fa-chart-bar mr-1"></i> Reportes
+                        </a>
+                        {% endif %}
+                        <a href="/sales" class="nav-link {% if '/sales' in request.path %}nav-link-active{% endif %}">
+                            <i class="fas fa-shopping-cart mr-1"></i> Ventas
+                        </a>
+                    </nav>
+                    <div class="relative">
+                        <div class="flex items-center space-x-2">
+                            <span class="text-sm text-muted-foreground">{{ user.username }}</span>
+                            <div class="avatar">
+                                <i class="fas fa-user-circle text-2xl text-muted-foreground"></i>
+                            </div>
+                            <form method="post" action="{% url 'logout' %}">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-ghost btn-sm">
+                                    <i class="fas fa-sign-out-alt mr-1"></i> Salir
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+        {% endif %}
+        
+        <main class="flex-1">
+            {% if messages %}
+            <div class="container py-4">
+                {% for message in messages %}
+                <div class="alert {% if message.tags == 'error' %}alert-destructive{% elif message.tags == 'warning' %}alert-warning{% endif %} mb-4">
+                    <i class="fas {% if message.tags == 'error' %}fa-exclamation-circle{% elif message.tags == 'warning' %}fa-exclamation-triangle{% else %}fa-info-circle{% endif %} mr-2"></i>
+                    <span>{{ message }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            
+            {% block content %}{% endblock %}
+        </main>
+        
+        <footer class="border-t py-6 md:py-0">
+            <div class="container flex flex-col items-center justify-between gap-4 md:h-16 md:flex-row">
+                <p class="text-center text-sm text-muted-foreground md:text-left">
+                    &copy; {% now "Y" %} Dev Bazar. Todos los derechos reservados.
+                </p>
+            </div>
+        </footer>
+    </div>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

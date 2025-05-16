@@ -1,0 +1,310 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Administración de Productos - Dev Bazar{% endblock %}
+
+{% block content %}
+<div class="container py-8">
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-3xl font-bold">Administración de Productos</h1>
+        <button id="add-product-btn" class="btn btn-primary">
+            <i class="fas fa-plus mr-2"></i>
+            Nuevo Producto
+        </button>
+    </div>
+
+    <!-- Filtros y búsqueda -->
+    <div class="card mb-6">
+        <div class="card-content">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="relative">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3">
+                        <i class="fas fa-search text-muted-foreground"></i>
+                    </span>
+                    <input type="text" id="product-search" placeholder="Buscar productos..." 
+                           class="input pl-10 w-full" autocomplete="off">
+                </div>
+                <div>
+                    <select id="category-filter" class="input w-full">
+                        <option value="">Todas las categorías</option>
+                        {% for category in categories %}
+                        <option value="{{ category.id }}">{{ category.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <select id="stock-filter" class="input w-full">
+                        <option value="">Todos los stocks</option>
+                        <option value="low">Stock bajo (< 5)</option>
+                        <option value="out">Sin stock</option>
+                        <option value="available">Con stock</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla de Productos -->
+    <div class="card">
+        <div class="card-content">
+            <div class="overflow-x-auto">
+                <table class="table">
+                    <thead class="table-header">
+                        <tr class="table-row">
+                            <th class="table-cell">Nombre</th>
+                            <th class="table-cell">Categoría</th>
+                            <th class="table-cell">Precio</th>
+                            <th class="table-cell">Costo</th>
+                            <th class="table-cell">Margen</th>
+                            <th class="table-cell">Stock</th>
+                            <th class="table-cell">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody class="table-body">
+                        {% for product in products %}
+                        <tr class="table-row" data-id="{{ product.id }}" data-name="{{ product.name }}" data-category="{{ product.category.id|default:'' }}">
+                            <td class="table-cell">{{ product.name }}</td>
+                            <td class="table-cell">{{ product.category.name|default:"Sin categoría" }}</td>
+                            <td class="table-cell">${{ product.price }}</td>
+                            <td class="table-cell">${{ product.cost_price }}</td>
+                            <td class="table-cell">{{ product.profit_margin|floatformat:2 }}%</td>
+                            <td class="table-cell">
+                                <span class="badge {% if product.stock == 0 %}badge-destructive{% elif product.stock < 5 %}badge-secondary{% else %}badge-default{% endif %}">
+                                    {{ product.stock }}
+                                </span>
+                            </td>
+                            <td class="table-cell">
+                                <div class="flex space-x-2">
+                                    <button class="btn btn-sm btn-outline edit-product-btn" data-id="{{ product.id }}">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline delete-product-btn" data-id="{{ product.id }}">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr class="table-row">
+                            <td class="table-cell text-center" colspan="7">No hay productos registrados</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Añadir/Editar Producto -->
+<div id="product-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black bg-opacity-50">
+    <div class="bg-background rounded-lg shadow-lg max-w-md w-full mx-4">
+        <div class="p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold" id="modal-title">Añadir Producto</h3>
+                <button id="close-modal-btn" class="text-muted-foreground hover:text-foreground">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <form id="product-form" method="post" action="{% url 'save_product' %}" class="space-y-4">
+                {% csrf_token %}
+                <input type="hidden" id="product-id" name="product_id">
+                
+                <div class="space-y-2">
+                    <label for="product-name" class="label">Nombre</label>
+                    <input type="text" id="product-name" name="name" class="input w-full" required>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="space-y-2">
+                        <label for="product-price" class="label">Precio de Venta ($)</label>
+                        <input type="number" id="product-price" name="price" step="0.01" min="0" class="input w-full" required>
+                    </div>
+                    <div class="space-y-2">
+                        <label for="product-cost" class="label">Precio de Costo ($)</label>
+                        <input type="number" id="product-cost" name="cost_price" step="0.01" min="0" class="input w-full" required>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="space-y-2">
+                        <label for="product-category" class="label">Categoría</label>
+                        <select id="product-category" name="category" class="input w-full">
+                            <option value="">Sin categoría</option>
+                            {% for category in categories %}
+                            <option value="{{ category.id }}">{{ category.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="space-y-2">
+                        <label for="product-stock" class="label">Stock</label>
+                        <input type="number" id="product-stock" name="stock" step="1" min="0" class="input w-full" required>
+                    </div>
+                </div>
+                
+                <div class="space-y-2">
+                    <label for="product-barcode" class="label">Código de Barras (opcional)</label>
+                    <input type="text" id="product-barcode" name="barcode" class="input w-full">
+                </div>
+                
+                <div class="space-y-2">
+                    <label for="product-description" class="label">Descripción (opcional)</label>
+                    <textarea id="product-description" name="description" class="input w-full min-h-[100px]"></textarea>
+                </div>
+                
+                <div class="flex justify-end space-x-2 pt-4">
+                    <button type="button" id="cancel-btn" class="btn btn-outline">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Confirmación para Eliminar -->
+<div id="delete-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black bg-opacity-50">
+    <div class="bg-background rounded-lg shadow-lg max-w-md w-full mx-4">
+        <div class="p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold">Confirmar Eliminación</h3>
+                <button id="close-delete-modal-btn" class="text-muted-foreground hover:text-foreground">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <p class="mb-4">¿Está seguro que desea eliminar el producto <span id="delete-product-name" class="font-semibold"></span>?</p>
+            
+            <form id="delete-form" method="post" action="{% url 'delete_product' %}">
+                {% csrf_token %}
+                <input type="hidden" id="delete-product-id" name="product_id">
+                
+                <div class="flex justify-end space-x-2 pt-4">
+                    <button type="button" id="cancel-delete-btn" class="btn btn-outline">Cancelar</button>
+                    <button type="submit" class="btn btn-destructive">Eliminar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const productSearch = document.getElementById('product-search');
+        const categoryFilter = document.getElementById('category-filter');
+        const stockFilter = document.getElementById('stock-filter');
+        const addProductBtn = document.getElementById('add-product-btn');
+        const productModal = document.getElementById('product-modal');
+        const deleteModal = document.getElementById('delete-modal');
+        const closeModalBtn = document.getElementById('close-modal-btn');
+        const closeDeleteModalBtn = document.getElementById('close-delete-modal-btn');
+        const cancelBtn = document.getElementById('cancel-btn');
+        const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
+        const modalTitle = document.getElementById('modal-title');
+        const productForm = document.getElementById('product-form');
+        const deleteForm = document.getElementById('delete-form');
+        
+        // Botones de edición
+        document.querySelectorAll('.edit-product-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const productId = this.dataset.id;
+                modalTitle.textContent = 'Editar Producto';
+                
+                // Aquí deberías hacer una petición AJAX para obtener los datos del producto
+                // y rellenar el formulario. Para simplificar, asumimos que ya tienes todos 
+                // los datos necesarios en los data attributes.
+                
+                // Ejemplo (esto es una simulación, deberías reemplazarlo por una petición real):
+                fetch(`/api/products/${productId}/`)
+                    .then(response => response.json())
+                    .then(product => {
+                        document.getElementById('product-id').value = product.id;
+                        document.getElementById('product-name').value = product.name;
+                        document.getElementById('product-price').value = product.price;
+                        document.getElementById('product-cost').value = product.cost_price;
+                        document.getElementById('product-stock').value = product.stock;
+                        document.getElementById('product-category').value = product.category || '';
+                        document.getElementById('product-barcode').value = product.barcode || '';
+                        document.getElementById('product-description').value = product.description || '';
+                        
+                        productModal.classList.remove('hidden');
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('Error al cargar los datos del producto');
+                    });
+            });
+        });
+        
+        // Botones de eliminación
+        document.querySelectorAll('.delete-product-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const productId = this.dataset.id;
+                const productRow = document.querySelector(`tr[data-id="${productId}"]`);
+                const productName = productRow.dataset.name;
+                
+                document.getElementById('delete-product-id').value = productId;
+                document.getElementById('delete-product-name').textContent = productName;
+                
+                deleteModal.classList.remove('hidden');
+            });
+        });
+        
+        // Botón de añadir producto
+        addProductBtn.addEventListener('click', function() {
+            modalTitle.textContent = 'Añadir Producto';
+            productForm.reset();
+            document.getElementById('product-id').value = '';
+            productModal.classList.remove('hidden');
+        });
+        
+        // Cerrar modales
+        closeModalBtn.addEventListener('click', () => productModal.classList.add('hidden'));
+        cancelBtn.addEventListener('click', () => productModal.classList.add('hidden'));
+        closeDeleteModalBtn.addEventListener('click', () => deleteModal.classList.add('hidden'));
+        cancelDeleteBtn.addEventListener('click', () => deleteModal.classList.add('hidden'));
+        
+        // Filtrar productos
+        function filterProducts() {
+            const searchTerm = productSearch.value.toLowerCase();
+            const categoryId = categoryFilter.value;
+            const stockValue = stockFilter.value;
+            
+            const productRows = document.querySelectorAll('tbody.table-body tr');
+            
+            productRows.forEach(row => {
+                if (row.classList.contains('hidden-row')) return; // Skip header rows
+                
+                const productName = row.querySelector('td:first-child').textContent.toLowerCase();
+                const productCategory = row.dataset.category;
+                const stockCell = row.querySelector('td:nth-child(6)');
+                const stock = parseInt(stockCell.textContent.trim(), 10);
+                
+                let matchesSearch = productName.includes(searchTerm);
+                let matchesCategory = categoryId === '' || productCategory === categoryId;
+                let matchesStock = true;
+                
+                if (stockValue === 'low') {
+                    matchesStock = stock < 5 && stock > 0;
+                } else if (stockValue === 'out') {
+                    matchesStock = stock === 0;
+                } else if (stockValue === 'available') {
+                    matchesStock = stock > 0;
+                }
+                
+                if (matchesSearch && matchesCategory && matchesStock) {
+                    row.classList.remove('hidden');
+                } else {
+                    row.classList.add('hidden');
+                }
+            });
+        }
+        
+        productSearch.addEventListener('input', filterProducts);
+        categoryFilter.addEventListener('change', filterProducts);
+        stockFilter.addEventListener('change', filterProducts);
+    });
+</script>
+{% endblock %}
